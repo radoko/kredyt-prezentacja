@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nadpłata kredytu: skracać okres czy obniżać ratę?</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --ink:#e6edf3; --muted:#9aa7b4;
+    --line:#2a3340; --accent:#58a6ff;
+    --A:#f0a04b;   /* A - skracanie okresu (amber - "ten gorszy wybor") */
+    --A-dim:#5a3d14;
+    --B:#2dd4bf;   /* B - nizsza rata + nadplata (teal - "zwyciezca") */
+    --B-dim:#134e4a;
+    --good:#4ade80; --bad:#f87171;
+    --font:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidden}
+  .deck{height:100vh;width:100vw;position:relative}
+  .slide{position:absolute;inset:0;display:none;flex-direction:column;
+    padding:clamp(24px,4vw,64px);animation:fade .45s ease}
+  .slide.active{display:flex}
+  @keyframes fade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .kicker{color:var(--accent);font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    font-size:clamp(11px,1.1vw,14px);margin-bottom:14px}
+  h1{font-size:clamp(28px,4.4vw,56px);line-height:1.06;font-weight:800;letter-spacing:-.02em}
+  h2{font-size:clamp(22px,3vw,40px);font-weight:800;letter-spacing:-.01em;margin-bottom:6px}
+  .sub{color:var(--muted);font-size:clamp(14px,1.5vw,20px);margin-top:16px;max-width:62ch;line-height:1.5}
+  .sub b{color:var(--ink)}
+  .fill{flex:1;display:flex;flex-direction:column;justify-content:center}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:clamp(16px,2vw,32px);align-items:stretch}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:clamp(16px,2vw,28px)}
+  .card.A{border-color:var(--A);box-shadow:0 0 0 1px var(--A) inset,0 18px 40px -24px var(--A)}
+  .card.B{border-color:var(--B);box-shadow:0 0 0 1px var(--B) inset,0 18px 40px -24px var(--B)}
+  .tag{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:14px;
+    padding:5px 12px;border-radius:999px;margin-bottom:14px}
+  .tag.A{background:var(--A-dim);color:var(--A)}
+  .tag.B{background:var(--B-dim);color:var(--B)}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .dot.A{background:var(--A)} .dot.B{background:var(--B)}
+  .big{font-size:clamp(28px,3.8vw,48px);font-weight:800;letter-spacing:-.02em}
+  .big.A{color:var(--A)} .big.B{color:var(--B)}
+  .lbl{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+  .rows{margin-top:16px;display:flex;flex-direction:column;gap:10px}
+  .row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    padding-bottom:9px;border-bottom:1px dashed var(--line);font-size:clamp(14px,1.4vw,17px)}
+  .row span:first-child{color:var(--muted)}
+  .row b{font-variant-numeric:tabular-nums;font-weight:700}
+  .params{display:flex;flex-wrap:wrap;gap:14px;margin-top:22px}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 18px}
+  .chip .v{font-size:clamp(20px,2.4vw,30px);font-weight:800;color:var(--ink)}
+  .chip .k{color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+  .note{margin-top:18px;background:var(--panel2);border-left:3px solid var(--accent);
+    border-radius:0 10px 10px 0;padding:14px 18px;color:var(--muted);font-size:15px;line-height:1.5;max-width:82ch}
+  .note b{color:var(--ink)}
+  .note.warn{border-color:var(--A)} .note.good{border-color:var(--B)}
+  .nav{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;
+    align-items:center;gap:14px;background:rgba(22,27,34,.85);backdrop-filter:blur(6px);
+    border:1px solid var(--line);border-radius:999px;padding:8px 14px;z-index:50}
+  .nav button{background:none;border:none;color:var(--ink);cursor:pointer;font-size:18px;
+    width:34px;height:34px;border-radius:50%;display:grid;place-items:center}
+  .nav button:hover{background:var(--panel2)}
+  .dots{display:flex;gap:7px}
+  .pd{width:8px;height:8px;border-radius:50%;background:var(--line);cursor:pointer;transition:.2s}
+  .pd.on{background:var(--accent);transform:scale(1.35)}
+  .count{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;min-width:42px;text-align:center}
+  .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;margin-top:4px}
+  .ctrl label{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:8px}
+  .ctrl label b{color:var(--ink);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--B)}
+  .verdict{margin-top:20px;padding:18px 22px;border-radius:14px;font-size:clamp(15px,1.7vw,21px);
+    font-weight:700;line-height:1.4}
+  .verdict.A{background:var(--A-dim);color:var(--A)}
+  .verdict.B{background:var(--B-dim);color:var(--B)}
+  .verdict.eq{background:#1e3a5f;color:var(--accent)}
+  svg{width:100%;height:auto;display:block}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:14px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:8px}
+  .swatch{width:14px;height:14px;border-radius:4px}
+  ul.clean{list-style:none;display:flex;flex-direction:column;gap:14px;margin-top:18px}
+  ul.clean li{display:flex;gap:14px;font-size:clamp(15px,1.6vw,19px);line-height:1.45}
+  ul.clean .ic{flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-weight:800}
+  .ic.plus{background:var(--B-dim);color:var(--B)} .ic.minus{background:var(--A-dim);color:var(--A)}
+  .ic.star{background:#1e3a5f;color:var(--accent)}
+  .hint{position:fixed;top:16px;right:20px;color:var(--muted);font-size:12px;z-index:40}
+  @media(max-width:820px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="hint">← → aby zmieniać slajdy</div>
+<div class="deck" id="deck">
+
+  <!-- 1 TITLE -->
+  <section class="slide active">
+    <div class="fill">
+      <div class="kicker">Analiza nadpłaty kredytu hipotecznego</div>
+      <h1>Skracać okres kredytu?<br><span style="color:var(--B)">Nie musisz — i tak wygrasz.</span></h1>
+      <p class="sub">Kredyt <b>200 000 zł</b> · oprocentowanie <b>6,6%</b> · okres <b>15 lat</b>.
+      Pokażemy, że <b>zmniejszanie raty + dobrowolna nadpłata</b> daje <b>identyczny</b> wynik finansowy
+      co skracanie okresu — ale zostawia Ci bezpieczeństwo, którego skracanie odbiera.</p>
+      <div class="params">
+        <div class="chip"><div class="v">200 000 zł</div><div class="k">Kwota kredytu</div></div>
+        <div class="chip"><div class="v">6,6%</div><div class="k">Oprocentowanie</div></div>
+        <div class="chip"><div class="v">15 lat</div><div class="k">Okres formalny</div></div>
+        <div class="chip"><div class="v" id="t-base">—</div><div class="k">Rata bazowa</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 PUNKT WYJSCIA -->
+  <section class="slide">
+    <div class="kicker">Punkt wyjścia · wspólny budżet</div>
+    <h2>Masz stały budżet na kredyt co miesiąc</h2>
+    <div class="fill">
+      <div class="grid2">
+        <div class="card">
+          <div class="rows" id="base-rows"></div>
+        </div>
+        <div class="card">
+          <h3 style="font-size:20px;margin-bottom:6px">Reguła gry</h3>
+          <p class="sub" style="margin-top:8px">Co miesiąc przeznaczasz <b id="t-budget">—</b> na kredyt —
+          tyle, ile wynosiłaby rata przy spłacie w 10 lat.</p>
+          <div class="note">W obu scenariuszach <b>wpłacasz dokładnie tyle samo</b>.
+          Różni je tylko jedna decyzja w banku przy nadpłacie:
+          <b style="color:var(--A)">„skróć okres"</b> czy <b style="color:var(--B)">„zmniejsz ratę"</b>.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 SCENARIUSZ A -->
+  <section class="slide">
+    <div class="kicker">Scenariusz A</div>
+    <h2 style="color:var(--A)">Skracam okres — rata sztywno wysoka</h2>
+    <div class="fill">
+      <div class="grid2">
+        <div class="card A">
+          <div class="tag A"><span class="dot A"></span>Skracanie okresu</div>
+          <div class="big A" id="a-pmt">—</div><div class="lbl">rata OBOWIĄZKOWA — stała przez całe 10 lat</div>
+          <div class="rows" id="a-rows"></div>
+        </div>
+        <div class="card">
+          <h3 style="font-size:20px">Co to oznacza</h3>
+          <ul class="clean">
+            <li><span class="ic plus">✓</span><div>Kredyt znika po <b>10 latach</b>, odsetki mocno spadają.</div></li>
+            <li><span class="ic minus">!</span><div>Bank <b>na sztywno żąda</b> pełnej, wysokiej raty co miesiąc — przez 10 lat.</div></li>
+            <li><span class="ic minus">!</span><div>Stracisz pracę, zachoruje dziecko? <b>Nadal musisz płacić <span id="a-min">—</span></b>. Zero elastyczności.</div></li>
+          </ul>
+          <div class="note warn">Decyzję o skróceniu <b>trudno cofnąć</b> — raz podniesiona rata jest zobowiązaniem wobec banku.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 SCENARIUSZ B -->
+  <section class="slide">
+    <div class="kicker">Scenariusz B</div>
+    <h2 style="color:var(--B)">Zmniejszam ratę i nadpłacam „śnieżną kulą"</h2>
+    <div class="fill">
+      <div class="grid2">
+        <div class="card B">
+          <div class="tag B"><span class="dot B"></span>Niższa rata + dobrowolna nadpłata</div>
+          <div class="big B" id="b-pmt">—</div><div class="lbl">rata OBOWIĄZKOWA po 9 latach — reszta to Twoja decyzja</div>
+          <div class="rows" id="b-rows"></div>
+        </div>
+        <div class="card">
+          <h3 style="font-size:20px">Mechanizm śnieżnej kuli</h3>
+          <ul class="clean">
+            <li><span class="ic plus">✓</span><div>Każda nadpłata <b>obniża ratę obowiązkową</b> (okres zostaje 15 lat).</div></li>
+            <li><span class="ic plus">✓</span><div>Rata spada → <b>uwolnione środki dokładasz do nadpłaty</b>. Budżet stały, nadpłata rośnie.</div></li>
+            <li><span class="ic plus">✓</span><div>Dług znika… <b style="color:var(--B)">w tym samym momencie</b> co w A — i z <b>tymi samymi odsetkami</b>!</div></li>
+          </ul>
+          <div class="note good">Rata obowiązkowa topnieje z <b id="b-r0">—</b> do <b id="b-r9">—</b>,
+          a dobrowolna nadpłata rośnie z <b id="b-o0">—</b> do <b id="b-o9">—</b> miesięcznie.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 PORÓWNANIE -->
+  <section class="slide">
+    <div class="kicker">Sedno · ta sama wpłata, zupełnie inne bezpieczeństwo</div>
+    <h2>Identyczny koszt — ale rata obowiązkowa topnieje</h2>
+    <div class="fill">
+      <div class="grid2" style="grid-template-columns:1.45fr 1fr">
+        <div class="card">
+          <div id="chart"></div>
+          <div class="legend">
+            <span><i class="swatch" style="background:var(--A)"></i> A — rata obowiązkowa (sztywna)</span>
+            <span><i class="swatch" style="background:var(--B)"></i> B — rata obowiązkowa (maleje)</span>
+            <span><i class="swatch" style="background:#2a3340"></i> B — dobrowolna nadpłata</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="font-size:19px;margin-bottom:10px">Wynik po 10 latach</h3>
+          <div class="rows" id="cmp-rows"></div>
+          <div class="verdict eq" id="verdict">—</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 INTERAKCJA -->
+  <section class="slide">
+    <div class="kicker">Kalkulator · sprawdź sam</div>
+    <h2>Odsetki są identyczne — niezależnie od parametrów</h2>
+    <div class="fill">
+      <div class="grid2" style="grid-template-columns:1fr 1.1fr">
+        <div class="card">
+          <div class="controls">
+            <div class="ctrl"><label>Kwota kredytu <b id="o-amt">200 000 zł</b></label>
+              <input id="s-amt" type="range" min="100000" max="800000" step="10000" value="200000"></div>
+            <div class="ctrl"><label>Oprocentowanie <b id="o-loan">6,6%</b></label>
+              <input id="s-loan" type="range" min="2" max="12" step="0.1" value="6.6"></div>
+            <div class="ctrl"><label>Okres kredytu <b id="o-term">15 lat</b></label>
+              <input id="s-term" type="range" min="10" max="35" step="1" value="15"></div>
+            <div class="ctrl"><label>Chcę spłacić w <b id="o-years">10 lat</b></label>
+              <input id="s-years" type="range" min="5" max="14" step="1" value="10"></div>
+          </div>
+          <div class="note" id="be-note">—</div>
+        </div>
+        <div class="card">
+          <div class="rows" id="live-rows"></div>
+          <div class="verdict eq" id="live-verdict">—</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 WNIOSKI -->
+  <section class="slide">
+    <div class="kicker">Wnioski</div>
+    <h2>Dlaczego skracanie okresu „się nie opłaca"</h2>
+    <div class="fill">
+      <ul class="clean" style="gap:18px;max-width:94ch">
+        <li><span class="ic star">1</span><div><b>Ten sam koszt.</b> Dopóki wpłacasz tyle samo, kredyt spłacasz w tym samym momencie
+          i z <b>identycznymi odsetkami</b> — niezależnie, czy wybierzesz „skróć okres", czy „zmniejsz ratę".
+          Skracanie <b>nie daje ani złotówki przewagi</b>.</div></li>
+        <li><span class="ic plus">✓</span><div><b>Więcej bezpieczeństwa za darmo.</b> Przy „zmniejsz ratę" Twoja rata obowiązkowa spada
+          (tu z <span id="w-r0">—</span> do <span id="w-r9">—</span>). Nadpłata jest <b>dobrowolna</b> — w razie kłopotów po prostu jej nie robisz.</div></li>
+        <li><span class="ic plus">✓</span><div><b>Płynność i kontrola.</b> Zachowujesz niską ratę jako poduszkę, a nadwyżkę możesz też
+          przekierować na lokatę/inwestycję, jeśli da więcej niż <span id="w-be">—</span> (koszt kredytu po podatku).</div></li>
+        <li><span class="ic star">★</span><div><b>Werdykt:</b> <b style="color:var(--B)">zawsze wybieraj „zmniejsz ratę" i nadpłacaj dobrowolnie</b>.
+          Dostajesz tę samą oszczędność co przy skracaniu — plus bufor bezpieczeństwa. Skracanie okresu to po prostu
+          <b>gorszy wariant tej samej strategii</b>.</div></li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+<div class="nav">
+  <button id="prev" aria-label="Poprzedni">‹</button>
+  <div class="dots" id="dots"></div>
+  <span class="count" id="count">1 / 7</span>
+  <button id="next" aria-label="Następny">›</button>
+</div>
+
+<script>
+const BELKA=0.19;
+const fmt=n=>Math.round(n).toLocaleString('pl-PL')+' zł';
+const fmt0=n=>Math.round(n).toLocaleString('pl-PL');
+const pct=n=>n.toLocaleString('pl-PL',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+function payment(L,annual,n){const r=annual/12;return L*r/(1-Math.pow(1+r,-n));}
+
+// Core simulation: constant monthly outlay = payment to finish in targetMonths.
+// A: mandatory = outlay (fixed). B: mandatory recomputed to original term, overpay the rest.
+function simulate(L,annual,termMonths,targetMonths){
+  const r=annual/12;
+  const base=payment(L,annual,termMonths);
+  const outlay=payment(L,annual,targetMonths);
+  // A
+  let bal=L,mA=0,paidA=0;
+  while(bal>0.01&&mA<2000){let pay=Math.min(outlay,bal*(1+r));bal=bal*(1+r)-pay;paidA+=pay;mA++;}
+  // B snowball
+  bal=L;let mB=0,paidB=0;const mand=[],over=[];
+  while(bal>0.01&&mB<2000){
+    const rem=termMonths-mB;
+    let mandatory = rem>0 ? payment(bal,annual,rem) : bal*(1+r);
+    mandatory=Math.min(mandatory,outlay);
+    let pay=Math.min(outlay,bal*(1+r));
+    mand.push(Math.min(mandatory,pay));
+    over.push(Math.max(pay-mandatory,0));
+    bal=bal*(1+r)-pay;paidB++;mB++;
+    paidB; // counter
+  }
+  return {base,outlay,
+    monthsA:mA,interestA:paidA-L,paidA,
+    monthsB:mB,interestB:(outlay*mB)-L>0?outlay*mB-L:0,
+    mand,over};
+}
+
+function rows(el,arr){el.innerHTML=arr.map(r=>`<div class="row"><span>${r[0]}</span><b style="${r[2]||''}">${r[1]}</b></div>`).join('');}
+
+let SIM;
+function renderStatic(){
+  const L=200000,loan=0.066,term=180,target=120;
+  const s=simulate(L,loan,term,target);SIM=s;
+  document.getElementById('t-base').textContent=fmt(s.base);
+  document.getElementById('t-budget').textContent=fmt(s.outlay)+' / mies.';
+
+  rows(document.getElementById('base-rows'),[
+    ['Rata bazowa (15 lat)',fmt(s.base)],
+    ['Stały budżet na kredyt',fmt(s.outlay)+' / mies.'],
+    ['Nadwyżka ponad ratę bazową',fmt(s.outlay-s.base)+' / mies.','color:var(--accent)'],
+    ['Odsetki bez nadpłaty',fmt(s.base*180-L),'color:var(--bad)'],
+  ]);
+
+  document.getElementById('a-pmt').textContent=fmt(s.outlay);
+  document.getElementById('a-min').textContent=fmt(s.outlay);
+  rows(document.getElementById('a-rows'),[
+    ['Spłata w',(s.monthsA/12).toFixed(1).replace('.',',')+' lat'],
+    ['Suma wpłat',fmt(s.paidA)],
+    ['Odsetki dla banku',fmt(s.interestA),'color:var(--A)'],
+    ['Rata obowiązkowa',fmt(s.outlay)+' — stała','color:var(--bad)'],
+  ]);
+
+  const r0=s.mand[0],r9=s.mand[Math.min(108,s.mand.length-1)];
+  const o0=s.over[0],o9=s.over[Math.min(108,s.over.length-1)];
+  document.getElementById('b-pmt').textContent=fmt(r9);
+  document.getElementById('b-r0').textContent=fmt(r0);
+  document.getElementById('b-r9').textContent=fmt(r9);
+  document.getElementById('b-o0').textContent=fmt(o0);
+  document.getElementById('b-o9').textContent=fmt(o9);
+  rows(document.getElementById('b-rows'),[
+    ['Spłata w',(s.monthsB/12).toFixed(1).replace('.',',')+' lat'],
+    ['Suma wpłat',fmt(s.outlay*s.monthsB)],
+    ['Odsetki dla banku',fmt(s.interestB),'color:var(--B)'],
+    ['Rata obowiązkowa',fmt(r0)+' → '+fmt(r9),'color:var(--good)'],
+  ]);
+
+  rows(document.getElementById('cmp-rows'),[
+    ['Moment spłaty — A',(s.monthsA/12).toFixed(1).replace('.',',')+' lat','color:var(--A)'],
+    ['Moment spłaty — B',(s.monthsB/12).toFixed(1).replace('.',',')+' lat','color:var(--B)'],
+    ['Odsetki — A',fmt(s.interestA),'color:var(--A)'],
+    ['Odsetki — B',fmt(s.interestB),'color:var(--B)'],
+    ['Różnica w koszcie','0 zł','color:var(--good)'],
+  ]);
+  document.getElementById('verdict').innerHTML=
+    `Wynik finansowy <b>identyczny</b> — ale rata obowiązkowa w B spada do <b>${fmt(r9)}</b>, w A sztywno <b>${fmt(s.outlay)}</b>.`;
+
+  drawChart(s);
+  document.getElementById('w-r0').textContent=fmt(r0);
+  document.getElementById('w-r9').textContent=fmt(r9);
+  document.getElementById('w-be').textContent=pct(loan*100/(1-BELKA));
+}
+
+function drawChart(s){
+  const W=640,H=360,pad={l:60,r:16,t:16,b:34};
+  const n=s.monthsA;
+  const yrs=n/12;
+  const budget=s.outlay;
+  const x=m=>pad.l+m*(W-pad.l-pad.r)/(n-1);
+  const ymax=budget*1.08;
+  const y=v=>pad.t+(ymax-v)*(H-pad.t-pad.b)/ymax;
+  // area under B mandatory
+  let aMand='M '+x(0)+' '+y(0);
+  for(let m=0;m<n;m++) aMand+=' L '+x(m).toFixed(1)+' '+y(s.mand[m]).toFixed(1);
+  aMand+=' L '+x(n-1)+' '+y(0)+' Z';
+  // area overpay (between mandatory and budget) = full area above mandatup to budget
+  let aOverTop='M '+x(0)+' '+y(budget);
+  for(let m=0;m<n;m++) aOverTop+=' L '+x(m).toFixed(1)+' '+y(budget).toFixed(1);
+  // build overpay polygon: top=budget line, bottom=mandatory
+  let poly='M '+x(0)+' '+y(budget);
+  for(let m=0;m<n;m++) poly+=' L '+x(m).toFixed(1)+' '+y(budget).toFixed(1);
+  for(let m=n-1;m>=0;m--) poly+=' L '+x(m).toFixed(1)+' '+y(s.mand[m]).toFixed(1);
+  poly+=' Z';
+  // mandatory line B
+  let lineB='';for(let m=0;m<n;m++) lineB+=(m?'L':'M')+x(m).toFixed(1)+' '+y(s.mand[m]).toFixed(1)+' ';
+  // grid
+  let grid='';const ticks=4;
+  for(let i=0;i<=ticks;i++){const val=ymax*i/ticks;const yy=y(val);
+    grid+=`<line x1="${pad.l}" y1="${yy}" x2="${W-pad.r}" y2="${yy}" stroke="#2a3340"/>
+    <text x="${pad.l-8}" y="${yy+4}" text-anchor="end" fill="#9aa7b4" font-size="11">${fmt0(val)}</text>`;}
+  let xl='';for(let yr=0;yr<=Math.round(yrs);yr+=2){const m=Math.min(yr*12,n-1);
+    xl+=`<text x="${x(m)}" y="${H-10}" text-anchor="middle" fill="#9aa7b4" font-size="11">${yr}r</text>`;}
+  document.getElementById('chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Rata obowiazkowa i nadplata w czasie">
+    ${grid}${xl}
+    <path d="${poly}" fill="#2a3340" opacity=".55"/>
+    <path d="${aMand}" fill="var(--B)" opacity=".22"/>
+    <line x1="${pad.l}" y1="${y(budget)}" x2="${W-pad.r}" y2="${y(budget)}" stroke="var(--A)" stroke-width="3"/>
+    <path d="${lineB}" fill="none" stroke="var(--B)" stroke-width="3"/>
+  </svg>`;
+}
+
+function renderLive(){
+  const amt=+document.getElementById('s-amt').value;
+  const loan=+document.getElementById('s-loan').value/100;
+  let term=+document.getElementById('s-term').value;
+  let yrs=+document.getElementById('s-years').value;
+  if(yrs>=term)yrs=term-1;
+  document.getElementById('o-amt').textContent=fmt(amt);
+  document.getElementById('o-loan').textContent=pct(loan*100);
+  document.getElementById('o-term').textContent=term+' lat';
+  document.getElementById('o-years').textContent=yrs+' lat';
+  const s=simulate(amt,loan,term*12,yrs*12);
+  const r9=s.mand[Math.min((yrs-1)*12,s.mand.length-1)];
+  rows(document.getElementById('live-rows'),[
+    ['Rata bazowa',fmt(s.base)],
+    ['Stały budżet / mies.',fmt(s.outlay)],
+    ['A — odsetki',fmt(s.interestA),'color:var(--A)'],
+    ['B — odsetki',fmt(s.interestB),'color:var(--B)'],
+    ['Różnica w koszcie',fmt(Math.abs(s.interestA-s.interestB)),'color:var(--good)'],
+    ['Rata obowiązkowa B (koniec)',fmt(r9),'color:var(--B)'],
+  ]);
+  document.getElementById('live-verdict').innerHTML=
+    `Koszt <b>ten sam</b> (różnica ${fmt(Math.abs(s.interestA-s.interestB))}), ale rata obowiązkowa B spada do <b>${fmt(r9)}</b> zamiast sztywnych <b>${fmt(s.outlay)}</b>.`;
+  document.getElementById('be-note').innerHTML=
+    `Zamiast dobrowolnej nadpłaty tę nadwyżkę możesz wpłacać na lokatę/inwestycję — opłaca się to dopiero, gdy daje ponad <b>${pct(loan*100/(1-BELKA))} brutto</b> (= ${pct(loan*100)} netto po podatku Belki), bo tyle „zarabia" nadpłata kredytu.`;
+}
+['s-amt','s-loan','s-term','s-years'].forEach(id=>document.getElementById(id).addEventListener('input',renderLive));
+
+const slides=[...document.querySelectorAll('.slide')];
+const dotsEl=document.getElementById('dots');let cur=0;
+slides.forEach((_,i)=>{const d=document.createElement('div');d.className='pd'+(i?'':' on');d.onclick=()=>go(i);dotsEl.appendChild(d);});
+const pds=[...dotsEl.children];
+function go(i){cur=Math.max(0,Math.min(slides.length-1,i));
+  slides.forEach((s,k)=>s.classList.toggle('active',k===cur));
+  pds.forEach((d,k)=>d.classList.toggle('on',k===cur));
+  document.getElementById('count').textContent=`${cur+1} / ${slides.length}`;}
+document.getElementById('next').onclick=()=>go(cur+1);
+document.getElementById('prev').onclick=()=>go(cur-1);
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' ')go(cur+1);if(e.key==='ArrowLeft')go(cur-1);});
+
+renderStatic();renderLive();
+</script>
+</body>
+</html>
